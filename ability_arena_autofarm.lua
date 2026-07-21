@@ -1,5 +1,5 @@
--- Ability Arena Auto TP & Auto Punch Script
--- This script automatically teleports to nearby players and punches them
+-- Ability Arena Auto TP & Auto Punch Script (Button-Based)
+-- This script uses the game's built-in TP and Punch buttons
 
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -16,10 +16,11 @@ local Config = {
     AutoPunchEnabled = true,
     TPRange = 50, -- Maximum distance to TP to players
     PunchRange = 5, -- Range to start punching
+    TPCooldown = 0.5, -- Time between TPs (in seconds)
     PunchCooldown = 0.1, -- Time between punches (in seconds)
-    TargetTeamEnemies = true, -- Only target enemy team
 }
 
+local lastTPTime = 0
 local lastPunchTime = 0
 
 -- Function to get all players in range
@@ -49,31 +50,43 @@ local function GetPlayersInRange(range)
     return playersInRange
 end
 
--- Function to teleport to a player
-local function TeleportToPlayer(targetHRP)
-    if humanoidRootPart and targetHRP then
-        -- TP slightly behind/above the target for better punching
-        local offset = (targetHRP.Position - humanoidRootPart.Position).Unit * 3
-        humanoidRootPart.CFrame = targetHRP.CFrame + offset + Vector3.new(0, 2, 0)
+-- Function to click TP button (finds and activates the TP button in GUI)
+local function ClickTPButton(targetPlayer)
+    local currentTime = tick()
+    if currentTime - lastTPTime >= Config.TPCooldown then
+        -- Find TP button in the GUI
+        local playerGui = player:WaitForChild("PlayerGui")
+        
+        -- Search for buttons in the GUI (adjust path based on actual game structure)
+        local tpButton = playerGui:FindFirstChild("TPButton") or
+                        playerGui:FindFirstChild("TeleportButton") or
+                        playerGui:FindFirstChild("MainGui"):FindFirstChild("TPButton") if playerGui:FindFirstChild("MainGui")
+        
+        if tpButton and tpButton:IsA("TextButton") or tpButton:IsA("ImageButton") then
+            tpButton:FireEvent("MouseButton1Click") or tpButton:FireEvent("Activated")
+            print("TP Button Clicked for: " .. targetPlayer.Name)
+        else
+            print("TP Button not found - adjust GUI path")
+        end
+        lastTPTime = currentTime
     end
 end
 
--- Function to punch
-local function Punch()
+-- Function to click Punch button
+local function ClickPunchButton()
     local currentTime = tick()
     if currentTime - lastPunchTime >= Config.PunchCooldown then
-        -- Try to find punch tool or use character attack
-        local tool = character:FindFirstChildOfClass("Tool")
-        if tool and tool:FindFirstChild("Punch") then
-            tool.Punch:FireServer()
-        elseif tool then
-            tool:Activate()
+        local playerGui = player:WaitForChild("PlayerGui")
+        
+        -- Search for punch button in the GUI
+        local punchButton = playerGui:FindFirstChild("PunchButton") or
+                           playerGui:FindFirstChild("AttackButton") or
+                           playerGui:FindFirstChild("MainGui"):FindFirstChild("PunchButton") if playerGui:FindFirstChild("MainGui")
+        
+        if punchButton and punchButton:IsA("TextButton") or punchButton:IsA("ImageButton") then
+            punchButton:FireEvent("MouseButton1Click") or punchButton:FireEvent("Activated")
         else
-            -- Fallback: use humanoid:TakeDamage if needed
-            local event = character:FindFirstChild("Punch")
-            if event then
-                event:FireServer()
-            end
+            print("Punch Button not found - adjust GUI path")
         end
         lastPunchTime = currentTime
     end
@@ -102,14 +115,14 @@ connection = RunService.RenderStepped:Connect(function()
     if closestPlayer then
         -- Auto TP
         if Config.AutoTPEnabled then
-            TeleportToPlayer(closestPlayer.HRP)
+            ClickTPButton(closestPlayer.Player)
         end
         
         -- Auto Punch
         if Config.AutoPunchEnabled then
             local distance = (humanoidRootPart.Position - closestPlayer.HRP.Position).Magnitude
             if distance <= Config.PunchRange then
-                Punch()
+                ClickPunchButton()
             end
         end
     end
